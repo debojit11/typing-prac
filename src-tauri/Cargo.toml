@@ -1,11 +1,11 @@
 [package]
-name = "key-prac"
+name = "typing-prac"
 version = "0.1.0"
 description = "Deliberate touch-typing key-pair practice"
 edition = "2021"
 
 [lib]
-name = "key_prac_lib"
+name = "typing_prac_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

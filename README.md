@@ -1,6 +1,6 @@
-# KeyPrac
+# TypingPrac
 
-KeyPrac is a small, offline Windows desktop app for deliberate key-pair repetition. Accuracy is deliberately more prominent than speed. It uses Tauri, a Rust practice/persistence core, and a framework-free TypeScript UI.
+TypingPrac is a small, offline Windows desktop app for deliberate key-pair repetition. Accuracy is deliberately more prominent than speed. It uses Tauri, a Rust practice/persistence core, and a framework-free TypeScript UI.
 
 ## Requirements
 
@@ -25,7 +25,7 @@ Adaptive mode raises a problem transition's selection weight up to 3×. It remai
 
 ## Local data
 
-Accounts, settings, and per-account aggregated statistics are stored locally in `%APPDATA%\com.keyprac.desktop\accounts.json`. Passwords are never stored directly: each password is protected with a unique salt and Argon2id hash. Only the 20 latest session summaries per account are retained; old keystrokes are never stored individually. Key and transition counts/timings remain as small aggregates.
+Accounts, settings, and per-account aggregated statistics are stored locally in `%APPDATA%\com.typingprac.desktop\accounts.json`. Passwords are never stored directly: each password is protected with a unique salt and Argon2id hash. Only the 20 latest session summaries per account are retained; old keystrokes are never stored individually. Key and transition counts/timings remain as small aggregates.
 
 Accounts are local profiles, not cloud identities. They keep progress separate and deter casual access inside the app, but cannot protect data from someone who already controls your Windows account. There is deliberately no password recovery mechanism because no email or server exists.
 

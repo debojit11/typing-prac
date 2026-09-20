@@ -1,3 +1,3 @@
 fn main() {
-    key_prac_lib::run();
+    typing_prac_lib::run();
 }

@@ -201,5 +201,5 @@ pub fn run() {
             record_session
         ])
         .run(tauri::generate_context!())
-        .expect("error while running KeyPrac");
+        .expect("error while running TypingPrac");
 }
