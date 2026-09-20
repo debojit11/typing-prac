@@ -1,34 +1,66 @@
 # TypingPrac
 
-TypingPrac is a small, offline Windows desktop app for deliberate key-pair repetition. Accuracy is deliberately more prominent than speed. It uses Tauri, a Rust practice/persistence core, and a framework-free TypeScript UI.
+Deliberate touch-typing key-pair practice for Windows.
 
-## Requirements
+TypingPrac complements guided typing courses with focused repetition. Choose the key pairs you have learned, practise them in structured drills, and build accuracy and consistency before speed. The app runs entirely offline and has no telemetry or network features.
 
-- Windows 11 with the Microsoft Edge WebView2 runtime (normally preinstalled)
-- Rust stable with the MSVC target and Microsoft C++ Build Tools
-- Node.js 20 or newer
+## Features
 
-## Run and build
+- Standalone drills for a single key pair
+- Mixed drills that use only the selected pairs
+- Structured exercises for repetition, alternation, transitions, and longer sequences
+- Adaptive practice that gives extra attention to difficult keys and transitions
+- Short, medium, long, and endless sessions
+- Live accuracy, WPM, raw WPM, error, and timing metrics
+- Session results and per-account progress
+- Dark and light themes, adjustable text size, and an optional keyboard guide
+
+## Getting started
+
+### Requirements
+
+- Windows 11 and Microsoft Edge WebView2 (normally preinstalled)
+- [Rust](https://www.rust-lang.org/tools/install) stable with the MSVC toolchain
+- Microsoft C++ Build Tools
+- [Node.js](https://nodejs.org/) 20 or newer
+
+### Run locally
 
 ```powershell
+git clone --branch dev https://github.com/debojit11/typing-prac.git
+cd typing-prac
 npm install
 npm run dev
 ```
 
-Run core tests with `npm test`. Build the optimized app and NSIS installer with `npm run build`. Outputs are written below `src-tauri\target\release`.
+## Commands
 
-## Generator
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the app in development mode |
+| `npm test` | Run the Rust test suite |
+| `npm run build` | Create an optimized Windows executable and NSIS installer |
 
-Standalone mode moves through repetition, alternation, uneven runs, difficult transitions, and longer structured sequences using one pair. Mixed mode is separate: it schedules balanced pair exposure, left/right alternation, same-hand runs, pair-to-pair transitions, cross-pair transitions, and longer sequences. A small seeded xorshift generator makes tests reproducible without adding a random-number dependency.
+Production output is written to `src-tauri\target\release`. The installer is placed in `src-tauri\target\release\bundle\nsis`.
 
-Adaptive mode raises a problem transition's selection weight up to 3×. It remains mixed with normal material, and aggregated timing/error evidence is used rather than retaining raw keystroke logs.
+## Technology
 
-## Local data
+- [Tauri 2](https://tauri.app/)
+- Rust for exercise generation, statistics, accounts, and persistence
+- Vanilla TypeScript, HTML, and CSS for the interface
+- Argon2id password hashing
 
-Accounts, settings, and per-account aggregated statistics are stored locally in `%APPDATA%\com.typingprac.desktop\accounts.json`. Passwords are never stored directly: each password is protected with a unique salt and Argon2id hash. Only the 20 latest session summaries per account are retained; old keystrokes are never stored individually. Key and transition counts/timings remain as small aggregates.
+## Contributing
 
-Accounts are local profiles, not cloud identities. They keep progress separate and deter casual access inside the app, but cannot protect data from someone who already controls your Windows account. There is deliberately no password recovery mechanism because no email or server exists.
+Issues and pull requests are welcome. Before submitting a change, run:
 
-## Add a key pair
+```powershell
+npm test
+npm run build
+```
 
-Add its two-character lowercase value in three places: `PAIRS` in `src-tauri/src/generator.rs`, the appropriate group in `src/main.ts`, and the desired position in both lists. The ordering in those two arrays is the learning progression shown in the UI and accepted by the generator.
+Please report bugs through [GitHub Issues](https://github.com/debojit11/typing-prac/issues).
+
+## License
+
+No license has been added yet.
