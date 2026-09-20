@@ -1,0 +1,20 @@
+{
+  "name": "key-prac",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run frontend && tauri dev",
+    "frontend": "tsc --noEmit && esbuild ./src/main.ts --bundle --format=esm --target=es2022 --outfile=./frontend/dist/main.js --minify",
+    "build": "npm run frontend && tauri build",
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.5",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.0"
+  }
+}

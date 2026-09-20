@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>KeyPrac</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <section id="auth-view" class="auth-view">
+    <div class="auth-card">
+      <p class="eyebrow">KeyPrac · local account</p>
+      <h1 id="auth-title">Create your account</h1>
+      <p id="auth-copy">Your password and progress stay on this computer.</p>
+      <form id="auth-form">
+        <label>Username<input name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_-]+" autocomplete="username"></label>
+        <label>Password<input name="password" required minlength="8" maxlength="128" type="password" autocomplete="new-password"></label>
+        <label id="confirm-row">Confirm password<input name="confirmPassword" required minlength="8" maxlength="128" type="password" autocomplete="new-password"></label>
+        <button id="auth-submit" class="primary" type="submit">Create account</button>
+        <p id="auth-error" class="error" role="alert"></p>
+      </form>
+      <button id="auth-switch" class="quiet" type="button" hidden>Use another account</button>
+    </div>
+  </section>
+
+  <div id="app-shell" hidden>
+  <header>
+    <button class="brand nav" data-view="practice">KeyPrac</button>
+    <nav aria-label="Main navigation">
+      <button class="nav active" data-view="practice">Practice</button>
+      <button class="nav" data-view="progress">Progress</button>
+      <button class="nav" data-view="settings">Settings</button>
+      <span id="active-user"></span>
+      <button id="logout" class="account-button">Sign out</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="practice-view" class="view active">
+      <div id="setup">
+        <div class="intro">
+          <p class="eyebrow">Accuracy first · consistency second · speed third</p>
+          <h1>Deliberate key-pair practice</h1>
+          <p>Select what you have learned. Drills use only those keys.</p>
+        </div>
+        <div class="selection-toolbar">
+          <label><input id="select-all" type="checkbox"> Select all pairs</label>
+          <span id="selection-count">0 selected</span>
+        </div>
+        <div id="pair-groups"></div>
+        <div class="start-row">
+          <label>Session
+            <select id="length">
+              <option value="short">Short · 2–3 min</option>
+              <option value="medium" selected>Medium · ~5 min</option>
+              <option value="long">Long · ~10 min</option>
+              <option value="endless">Endless</option>
+            </select>
+          </label>
+          <button id="start-practice" class="primary" disabled>Select a key pair</button>
+        </div>
+        <p id="setup-error" class="error" role="alert"></p>
+      </div>
+
+      <div id="session" hidden tabindex="-1">
+        <div class="session-head">
+          <div><span id="section-name" class="eyebrow"></span><h2 id="session-title"></h2></div>
+          <button id="exit-session" class="quiet" title="Escape">Exit</button>
+        </div>
+        <div id="exercise" aria-label="Typing exercise"></div>
+        <div id="keyboard-guide" hidden></div>
+        <div class="metrics" aria-live="polite">
+          <div><strong id="accuracy">100%</strong><span>accuracy</span></div>
+          <div><strong id="wpm">0</strong><span>wpm</span></div>
+          <div><strong id="raw-wpm">0</strong><span>raw</span></div>
+          <div><strong id="errors">0</strong><span>errors</span></div>
+          <div><strong id="characters">0</strong><span>characters</span></div>
+          <div><strong id="elapsed">0:00</strong><span>elapsed</span></div>
+        </div>
+        <p class="hint">Type the line · Esc pauses · Enter continues after a line</p>
+      </div>
+
+      <div id="results" hidden>
+        <p class="eyebrow">Session complete</p><h1>Controlled practice pays off.</h1>
+        <div id="result-summary" class="result-grid"></div>
+        <div class="analysis-grid">
+          <section><h3>Most missed keys</h3><ol id="missed-keys"></ol></section>
+          <section><h3>Problem transitions</h3><ol id="problem-transitions"></ol></section>
+          <section><h3>Slowest keys</h3><ol id="slow-keys"></ol></section>
+          <section><h3>Slowest transitions</h3><ol id="slow-transitions"></ol></section>
+        </div>
+        <button id="practice-again" class="primary">Practice again</button>
+      </div>
+    </section>
+
+    <section id="progress-view" class="view">
+      <p class="eyebrow">Local progress</p><h1>Your practice history</h1>
+      <div id="overall" class="result-grid"></div>
+      <div class="progress-columns">
+        <section><h2>Key pairs</h2><div id="pair-progress"></div></section>
+        <section><h2>Weak spots</h2><div id="weak-spots"></div><h2>Recent sessions</h2><div id="recent"></div></section>
+      </div>
+    </section>
+
+    <section id="settings-view" class="view">
+      <p class="eyebrow">Preferences</p><h1>Settings</h1>
+      <form id="settings-form" class="settings">
+        <label>Theme<select name="theme"><option value="dark">Dark</option><option value="light">Light</option></select></label>
+        <label>Font size<input name="fontSize" type="range" min="24" max="52" step="2"></label>
+        <label><input name="stopOnError" type="checkbox"> Stop on error</label>
+        <label><input name="showKeyboard" type="checkbox"> Show keyboard guide</label>
+        <label><input name="showLiveWpm" type="checkbox"> Show live WPM</label>
+        <label><input name="adaptive" type="checkbox"> Adaptive practice</label>
+        <label><input name="allowBackspace" type="checkbox"> Allow Backspace</label>
+        <p>Sound is intentionally off in this lightweight version.</p>
+      </form>
+    </section>
+  </main>
+  </div>
+  <script type="module" src="dist/main.js"></script>
+</body>
+</html>

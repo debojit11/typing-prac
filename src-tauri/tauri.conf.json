@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "KeyPrac",
+  "version": "0.1.0",
+  "identifier": "com.keyprac.desktop",
+  "build": { "frontendDist": "../frontend", "beforeDevCommand": "npm run frontend", "beforeBuildCommand": "npm run frontend" },
+  "app": {
+    "windows": [{ "title": "KeyPrac", "width": 1100, "height": 760, "minWidth": 760, "minHeight": 600, "resizable": true }],
+    "security": { "csp": "default-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-src 'none'; form-action 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'" }
+  },
+  "bundle": { "active": true, "targets": ["nsis"], "windows": { "nsis": { "installMode": "currentUser" } } }
+}
