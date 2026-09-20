@@ -1,5 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="92" fill="#20211e"/>
-  <rect x="76" y="105" width="360" height="302" rx="40" fill="none" stroke="#e8c15b" stroke-width="24"/>
-  <path d="M143 184h48v48h-48zm89 0h48v48h-48zm89 0h48v48h-48zM143 273h48v48h-48zm89 0h137v48H232z" fill="#e7e7df"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="TypingPrac F and J key-pair logo">
+  <rect width="512" height="512" rx="104" fill="#171816"/>
+  <rect x="68" y="118" width="158" height="220" rx="34" fill="#242520" stroke="#e8c15b" stroke-width="10"/>
+  <rect x="286" y="118" width="158" height="220" rx="34" fill="#242520" stroke="#e8c15b" stroke-width="10"/>
+  <path d="M114 171h75v23h-48v35h42v22h-42v52h-27V171Z" fill="#e7e7df"/>
+  <path d="M323 171h76v23h-24v65c0 30-17 47-46 47-25 0-42-14-45-38l25-5c2 14 8 20 19 20 14 0 20-8 20-25v-64h-25v-23Z" fill="#e7e7df"/>
+  <path d="M121 309h40M351 309h40" stroke="#e8c15b" stroke-width="9" stroke-linecap="round"/>
+  <path d="M226 228h17l12-16 14 32 11-16h6" fill="none" stroke="#e8c15b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M112 382h288" stroke="#34362f" stroke-width="12" stroke-linecap="round"/>
+  <path d="M112 382h174" stroke="#e8c15b" stroke-width="12" stroke-linecap="round"/>
 </svg>

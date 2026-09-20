@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 type Settings={theme:string;fontSize:number;stopOnError:boolean;showKeyboard:boolean;showLiveWpm:boolean;adaptive:boolean;allowBackspace:boolean};
 type Timing={totalMs:number;samples:number};
-type PairStat={sessions:number;correct:number;errors:number;totalMs:number;typed:number};
+type PairStat={sessions:number;correct:number;errors:number;totalMs:number};
 type Summary={timestampMs:number;mode:string;pairs:string[];wpm:number;accuracy:number;durationMs:number};
 type AppData={settings:Settings;sessionsCompleted:number;totalPracticeMs:number;totalCorrect:number;totalErrors:number;pairStats:Record<string,PairStat>;keyErrors:Record<string,number>;transitionErrors:Record<string,number>;transitionCounts:Record<string,number>;keyTimings:Record<string,Timing>;transitionTimings:Record<string,Timing>;recentSessions:Summary[]};
 type Plan={mode:string;pairs:string[];sections:{name:string;lines:string[]}[];seed:number};
@@ -25,6 +25,8 @@ let lineIndex=0, pos=0, typed:boolean[]=[], startedAt=0, lastAt=0, pausedAt=0, p
 let keyErrors:Record<string,number>={},transitionErrors:Record<string,number>={},transitionCounts:Record<string,number>={},keyTimings:Record<string,Timing>={},transitionTimings:Record<string,Timing>={};
 let previousExpected="";
 let authMode:"login"|"create"="create",hasAccounts=false;
+const exercise=$("#exercise"),metricEls={accuracy:$("#accuracy"),wpm:$("#wpm"),raw:$("#raw-wpm"),errors:$("#errors"),characters:$("#characters"),elapsed:$("#elapsed")};
+let chars:HTMLSpanElement[]=[];
 
 async function init(){
   try{const status=await invoke<AccountStatus>("account_status");hasAccounts=status.hasAccounts;showAuth(hasAccounts?"login":"create")}catch(e){showAuth("create");$("#auth-error").textContent=String(e)}
@@ -45,10 +47,12 @@ async function start(){
 }
 function resetSession(){lineIndex=pos=correct=errors=pausedTotal=0;typed=[];startedAt=performance.now();lastAt=0;pausedAt=0;keyErrors={};transitionErrors={};transitionCounts={};keyTimings={};transitionTimings={};previousExpected=""}
 function renderLine(){const item=flat[lineIndex];$("#section-name").textContent=`${item.section} · ${lineIndex+1} / ${flat.length}`;$("#session-title").textContent=plan!.mode==="standalone"?`${labelFor(plan!.pairs[0])} standalone`:`${plan!.pairs.map(labelFor).join(" + ")} mixed`;
-  const exercise=$("#exercise");exercise.replaceChildren();[...item.line].forEach((char,i)=>{const span=document.createElement("span");span.className="char"+(i<typed.length?(typed[i]?" correct":" incorrect"):(i===pos?" current":""));span.textContent=char;exercise.append(span)});updateMetrics()}
+  chars=[...item.line].map((char,i)=>{const span=make("span",char,"char"+(i===0?" current":""));return span});exercise.replaceChildren(...chars);updateMetrics()}
 function activeMs(){return Math.max(0,(pausedAt||performance.now())-startedAt-pausedTotal)}
 function metrics(){const chars=correct+errors,minutes=activeMs()/60000;return{chars,wpm:minutes?correct/5/minutes:0,raw:minutes?chars/5/minutes:0,accuracy:chars?correct/chars*100:100}}
-function updateMetrics(){const m=metrics();$("#accuracy").textContent=`${m.accuracy.toFixed(1)}%`;$("#wpm").textContent=data.settings.showLiveWpm?m.wpm.toFixed(0):"—";$("#raw-wpm").textContent=data.settings.showLiveWpm?m.raw.toFixed(0):"—";$("#errors").textContent=String(errors);$("#characters").textContent=String(m.chars);const sec=Math.floor(activeMs()/1000);$("#elapsed").textContent=`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`}
+function setText(el:HTMLElement,text:string){if(el.textContent!==text)el.textContent=text}
+function updateMetrics(){const m=metrics();setText(metricEls.accuracy,`${m.accuracy.toFixed(1)}%`);setText(metricEls.wpm,data.settings.showLiveWpm?m.wpm.toFixed(0):"—");setText(metricEls.raw,data.settings.showLiveWpm?m.raw.toFixed(0):"—");setText(metricEls.errors,String(errors));setText(metricEls.characters,String(m.chars));const sec=Math.floor(activeMs()/1000);setText(metricEls.elapsed,`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`)}
+function showTyped(ok:boolean){chars[pos].className=`char ${ok?"correct":"incorrect"}`;pos++;chars[pos]?.classList.add("current");updateMetrics()}
 function addTiming(map:Record<string,Timing>,key:string,ms:number){if(ms<20||ms>3000)return;const t=map[key]??={totalMs:0,samples:0};t.totalMs+=Math.round(ms);t.samples++}
 
 document.addEventListener("keydown",async e=>{
@@ -57,15 +61,14 @@ document.addEventListener("keydown",async e=>{
   if(pausedAt)return;
   const line=flat[lineIndex].line;
   if(pos>=line.length){if(e.key==="Enter"){e.preventDefault();await nextLine()}return}
-  if(e.key==="Backspace"){if(data.settings.allowBackspace&&pos>0){e.preventDefault();pos--;const wasCorrect=typed.pop()!;wasCorrect?correct--:errors--;renderLine()}return}
+  if(e.key==="Backspace"){if(data.settings.allowBackspace&&pos>0){e.preventDefault();pos--;const wasCorrect=typed.pop()!;wasCorrect?correct--:errors--;chars[pos].className="char current";updateMetrics()}return}
   if(e.ctrlKey||e.altKey||e.metaKey||e.key.length!==1)return;
   e.preventDefault();const expected=line[pos],ok=e.key===expected;const now=performance.now(),delay=lastAt?now-lastAt:0;
   if(previousExpected){const edge=previousExpected+expected;transitionCounts[edge]=(transitionCounts[edge]||0)+1}
   if(!ok){errors++;keyErrors[expected]=(keyErrors[expected]||0)+1;if(previousExpected){const edge=previousExpected+expected;transitionErrors[edge]=(transitionErrors[edge]||0)+1}if(data.settings.stopOnError){updateMetrics();return}}
   else correct++;
   if(delay){addTiming(keyTimings,expected,delay);if(previousExpected)addTiming(transitionTimings,previousExpected+expected,delay)}
-  typed.push(ok);pos++;previousExpected=expected;lastAt=now;renderLine();
-  if(pos===line.length)setTimeout(()=>$("#session").focus(),0);
+  typed.push(ok);previousExpected=expected;lastAt=now;showTyped(ok);
 });
 async function nextLine(){lineIndex++;if(lineIndex>=flat.length){const length=$("#length");if(length instanceof HTMLSelectElement&&length.value==="endless"){const extra=await invoke<Plan>("generate_session",{request:{pairs:plan!.pairs,mode:plan!.mode,length:"medium",adaptive:data.settings.adaptive}});flat.push(...extra.sections.flatMap(s=>s.lines.map(line=>({section:s.name,line}))))}else{return finish()}}pos=0;typed=[];previousExpected="";renderLine()}
 async function finish(){const m=metrics(),duration=Math.round(activeMs());$("#session").hidden=true;$("#results").hidden=false;resultSummary(m,duration);rank($("#missed-keys"),keyErrors," errors");rank($("#problem-transitions"),transitionErrors," errors",transitionLabel);rankTime($("#slow-keys"),keyTimings);rankTime($("#slow-transitions"),transitionTimings,transitionLabel);

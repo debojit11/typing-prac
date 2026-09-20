@@ -1,6 +1,10 @@
-# TypingPrac
+<p align="center">
+  <img src="src-tauri/icon.svg" width="112" alt="TypingPrac logo">
+</p>
 
-Deliberate touch-typing key-pair practice for Windows.
+<h1 align="center">TypingPrac</h1>
+
+<p align="center">Deliberate touch-typing key-pair practice for Windows.</p>
 
 TypingPrac complements guided typing courses with focused repetition. Choose the key pairs you have learned, practise them in structured drills, and build accuracy and consistency before speed. The app runs entirely offline and has no telemetry or network features.
 
@@ -42,6 +46,22 @@ npm run dev
 | `npm run build` | Create an optimized Windows executable and NSIS installer |
 
 Production output is written to `src-tauri\target\release`. The installer is placed in `src-tauri\target\release\bundle\nsis`.
+
+## Performance
+
+Measured from an optimized Windows 11 release build. RAM includes TypingPrac and its WebView2 child processes; results vary by machine and WebView2 version.
+
+| Metric | Measured result |
+| --- | ---: |
+| Release executable | 3.02 MiB |
+| NSIS installer | 1.08 MiB |
+| Shipped frontend | 23.82 KiB |
+| Idle private memory | 160.98 MiB |
+| Active-practice private memory | 168.24 MiB |
+| Idle CPU over 5 seconds | 0.000% |
+| CPU at approximately 16 keystrokes/second | 0.417% total CPU |
+
+Typing feedback is immediate. Statistics accumulate in memory during practice and are persisted once when a session finishes, never on every keystroke.
 
 ## Technology
 

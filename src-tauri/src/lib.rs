@@ -147,12 +147,6 @@ fn generate_session(
 }
 
 #[tauri::command]
-fn load_app_data(state: State<'_, Store>) -> Result<AppData, String> {
-    let state = state.0.lock().map_err(|_| "Account store is unavailable")?;
-    active_data(&state).cloned()
-}
-
-#[tauri::command]
 fn save_settings(
     settings: model::Settings,
     state: State<'_, Store>,
@@ -196,7 +190,6 @@ pub fn run() {
             login,
             logout,
             generate_session,
-            load_app_data,
             save_settings,
             record_session
         ])

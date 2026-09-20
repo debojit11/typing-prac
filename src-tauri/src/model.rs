@@ -60,7 +60,6 @@ pub struct PairStats {
     pub correct: u64,
     pub errors: u64,
     pub total_ms: u64,
-    pub typed: u64,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -140,7 +139,6 @@ impl AppData {
             s.correct += r.correct;
             s.errors += r.errors;
             s.total_ms += r.duration_ms;
-            s.typed += r.correct + r.errors;
         }
         merge_counts(&mut self.key_errors, r.key_errors);
         merge_counts(&mut self.transition_errors, r.transition_errors);
