@@ -43,6 +43,7 @@ npm run dev
 | --- | --- |
 | `npm run dev` | Start the app in development mode |
 | `npm test` | Run the Rust test suite |
+| `npm run inspect` | Print representative standalone, mixed, and adaptive drills |
 | `npm run build` | Create an optimized Windows executable and NSIS installer |
 
 Production output is written to `src-tauri\target\release`. The installer is placed in `src-tauri\target\release\bundle\nsis`.

@@ -7,7 +7,8 @@
     "dev": "tauri dev",
     "frontend": "tsc --noEmit && esbuild ./src/main.ts --bundle --format=esm --target=es2022 --outfile=./frontend/dist/main.js --minify",
     "build": "tauri build",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml"
+    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "inspect": "cargo test --manifest-path src-tauri/Cargo.toml inspect_samples -- --ignored --nocapture"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.5",
