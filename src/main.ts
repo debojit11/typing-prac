@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import {activeElapsed,resumeElapsed,TypingState,type Mark} from "./session";
 
 type Settings={theme:string;fontSize:number;stopOnError:boolean;showKeyboard:boolean;showLiveWpm:boolean;adaptive:boolean;allowBackspace:boolean};
 type Timing={totalMs:number;samples:number};
@@ -21,12 +22,16 @@ for(const group of PAIRS){const box=make("section",undefined,"pair-group");box.a
 let data:AppData;
 let plan:Plan|null=null;
 let flat:{section:string;line:string}[]=[];
-let lineIndex=0, pos=0, typed:boolean[]=[], startedAt=0, lastAt=0, pausedAt=0, pausedTotal=0, correct=0, errors=0;
+let lineIndex=0,startedAt=0,lastAt=0,pausedAt=0,pausedTotal=0,starting=false,resultsReady=false;
+const typing=new TypingState();
 let keyErrors:Record<string,number>={},transitionErrors:Record<string,number>={},transitionCounts:Record<string,number>={},keyTimings:Record<string,Timing>={},transitionTimings:Record<string,Timing>={};
 let previousExpected="";
 let authMode:"login"|"create"="create",hasAccounts=false;
 const exercise=$("#exercise"),metricEls={accuracy:$("#accuracy"),wpm:$("#wpm"),raw:$("#raw-wpm"),errors:$("#errors"),characters:$("#characters"),elapsed:$("#elapsed")};
 let chars:HTMLSpanElement[]=[];
+let currentChar:HTMLSpanElement|null=null;
+let keycaps=new Map<string,HTMLElement>();
+let currentGuideKey="";
 
 async function init(){
   try{const status=await invoke<AccountStatus>("account_status");hasAccounts=status.hasAccounts;showAuth(hasAccounts?"login":"create")}catch(e){showAuth("create");$("#auth-error").textContent=String(e)}
@@ -40,52 +45,67 @@ function selected(){return [...document.querySelectorAll<HTMLInputElement>('#pai
 function showError(message:string){$("#setup-error").textContent=message}
 function updateSelectionUi(){const count=selected().length,total=PAIRS.reduce((sum,g)=>sum+g.items.length,0),all=$<HTMLInputElement>("#select-all"),start=$<HTMLButtonElement>("#start-practice");all.checked=count===total;all.indeterminate=count>0&&count<total;start.disabled=count===0;start.textContent=count===0?"Select a key pair":count===1?"Start standalone practice":"Start mixed practice";$("#selection-count").textContent=`${count} selected`;showError("")}
 async function start(){
-  const pairs=selected();if(!pairs.length)return;const mode=pairs.length===1?"standalone":"mixed";
+  const pairs=selected();if(!pairs.length||starting)return;const mode=pairs.length===1?"standalone":"mixed";starting=true;
   showError("");
-  let generated:Plan;try{generated=await invoke<Plan>("generate_session",{request:{pairs,mode,length:$<HTMLSelectElement>("#length").value,adaptive:data.settings.adaptive}})}catch(e){return showError(String(e))}
-  plan=generated;flat=generated.sections.flatMap(s=>s.lines.map(line=>({section:s.name,line})));resetSession();$("#setup").hidden=true;$("#results").hidden=true;$("#session").hidden=false;renderKeyboard();renderLine();$("#session").focus();
+  let generated:Plan;try{generated=await invoke<Plan>("generate_session",{request:{pairs,mode,length:$<HTMLSelectElement>("#length").value,adaptive:data.settings.adaptive}})}catch(e){showError(String(e));starting=false;return}
+  plan=generated;flat=generated.sections.flatMap(s=>s.lines.map(line=>({section:s.name,line})));resetSession();$("#setup").hidden=true;$("#results").hidden=true;$("#session").hidden=false;sessionChrome(true);renderKeyboard();renderLine();$("#session").focus();starting=false;
 }
-function resetSession(){lineIndex=pos=correct=errors=pausedTotal=0;typed=[];startedAt=performance.now();lastAt=0;pausedAt=0;keyErrors={};transitionErrors={};transitionCounts={};keyTimings={};transitionTimings={};previousExpected=""}
+function resetSession(){lineIndex=pausedTotal=0;typing.resetSession();startedAt=performance.now();lastAt=0;pausedAt=0;keyErrors={};transitionErrors={};transitionCounts={};keyTimings={};transitionTimings={};previousExpected="";$("#accuracy-coach").textContent=""}
 function renderLine(){const item=flat[lineIndex];$("#section-name").textContent=`${item.section} · ${lineIndex+1} / ${flat.length}`;$("#session-title").textContent=plan!.mode==="standalone"?`${labelFor(plan!.pairs[0])} standalone`:`${plan!.pairs.map(labelFor).join(" + ")} mixed`;
-  chars=[...item.line].map((char,i)=>{const span=make("span",char,"char"+(i===0?" current":""));return span});exercise.replaceChildren(...chars);updateMetrics()}
-function activeMs(){return Math.max(0,(pausedAt||performance.now())-startedAt-pausedTotal)}
-function metrics(){const chars=correct+errors,minutes=activeMs()/60000;return{chars,wpm:minutes?correct/5/minutes:0,raw:minutes?chars/5/minutes:0,accuracy:chars?correct/chars*100:100}}
+  chars=[...item.line].map(char=>make("span",char,"char"));exercise.replaceChildren(...chars);setCurrent(0);updateKeyboardTarget(item.line[0]);updateMetrics()}
+function activeMs(){return activeElapsed(performance.now(),startedAt,pausedAt,pausedTotal)}
+function metrics(){const count=typing.correct+typing.errors,minutes=activeMs()/60000;return{chars:count,wpm:minutes?typing.correct/5/minutes:0,raw:minutes?count/5/minutes:0,accuracy:count?typing.correct/count*100:100}}
 function setText(el:HTMLElement,text:string){if(el.textContent!==text)el.textContent=text}
-function updateMetrics(){const m=metrics();setText(metricEls.accuracy,`${m.accuracy.toFixed(1)}%`);setText(metricEls.wpm,data.settings.showLiveWpm?m.wpm.toFixed(0):"—");setText(metricEls.raw,data.settings.showLiveWpm?m.raw.toFixed(0):"—");setText(metricEls.errors,String(errors));setText(metricEls.characters,String(m.chars));const sec=Math.floor(activeMs()/1000);setText(metricEls.elapsed,`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`)}
-function showTyped(ok:boolean){chars[pos].className=`char ${ok?"correct":"incorrect"}`;pos++;chars[pos]?.classList.add("current");updateMetrics()}
+function updateMetrics(){const m=metrics();setText(metricEls.accuracy,`${m.accuracy.toFixed(1)}%`);setText(metricEls.wpm,m.wpm.toFixed(0));setText(metricEls.raw,m.raw.toFixed(0));metricEls.wpm.parentElement!.hidden=!data.settings.showLiveWpm;metricEls.raw.parentElement!.hidden=!data.settings.showLiveWpm;setText(metricEls.errors,String(typing.errors));setText(metricEls.characters,String(m.chars));const sec=Math.floor(activeMs()/1000);setText(metricEls.elapsed,`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`);setText($("#accuracy-coach"),m.chars>=20&&m.accuracy<95?"Slow down — focus on accuracy.":"")}
+function setCurrent(index:number){currentChar?.classList.remove("current");currentChar?.removeAttribute("aria-current");currentChar=chars[index]??null;if(currentChar){currentChar.classList.add("current");currentChar.setAttribute("aria-current","true")}}
+function showTyped(mark:Mark,index:number){chars[index].className=`char ${mark}`;setCurrent(typing.pos);updateKeyboardTarget(flat[lineIndex].line[typing.pos]);updateMetrics()}
 function addTiming(map:Record<string,Timing>,key:string,ms:number){if(ms<20||ms>3000)return;const t=map[key]??={totalMs:0,samples:0};t.totalMs+=Math.round(ms);t.samples++}
 
 document.addEventListener("keydown",async e=>{
-  if($("#session").hidden)return;
-  if(e.key==="Escape"){e.preventDefault();exitSession();return}
+  if($("#session").hidden){
+    if(e.key==="Enter"&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
+      if(!$("#results").hidden&&resultsReady){e.preventDefault();await start()}
+      else if(!$("#setup").hidden&&!$<HTMLButtonElement>("#start-practice").disabled&&!(e.target instanceof HTMLInputElement||e.target instanceof HTMLSelectElement||e.target instanceof HTMLButtonElement)){e.preventDefault();await start()}
+    }
+    return;
+  }
+  if(e.key==="Escape"){e.preventDefault();pausedAt?resumeSession():pauseSession();return}
   if(pausedAt)return;
   const line=flat[lineIndex].line;
-  if(pos>=line.length){if(e.key==="Enter"){e.preventDefault();await nextLine()}return}
-  if(e.key==="Backspace"){if(data.settings.allowBackspace&&pos>0){e.preventDefault();pos--;const wasCorrect=typed.pop()!;wasCorrect?correct--:errors--;chars[pos].className="char current";updateMetrics()}return}
+  if(e.key==="Backspace"){if(data.settings.allowBackspace){e.preventDefault();const oldPos=typing.pos;if(typing.backspace()){chars[oldPos]?.classList.remove("current");chars[typing.pos].className="char current";setCurrent(typing.pos);previousExpected=typing.pos?line[typing.pos-1]:"";lastAt=0;updateKeyboardTarget(line[typing.pos]);updateMetrics()}}else e.preventDefault();return}
+  if(typing.complete(line)){if(e.key==="Enter"){e.preventDefault();await nextLine()}return}
   if(e.ctrlKey||e.altKey||e.metaKey||e.key.length!==1)return;
-  e.preventDefault();const expected=line[pos],ok=e.key===expected;const now=performance.now(),delay=lastAt?now-lastAt:0;
+  e.preventDefault();const index=typing.pos,expected=line[index],ok=e.key===expected;const now=performance.now(),delay=lastAt?now-lastAt:0;
   if(previousExpected){const edge=previousExpected+expected;transitionCounts[edge]=(transitionCounts[edge]||0)+1}
-  if(!ok){errors++;keyErrors[expected]=(keyErrors[expected]||0)+1;if(previousExpected){const edge=previousExpected+expected;transitionErrors[edge]=(transitionErrors[edge]||0)+1}if(data.settings.stopOnError){updateMetrics();return}}
-  else correct++;
+  if(!ok){keyErrors[expected]=(keyErrors[expected]||0)+1;if(previousExpected){const edge=previousExpected+expected;transitionErrors[edge]=(transitionErrors[edge]||0)+1}}
+  const mark=typing.type(expected,e.key,data.settings.stopOnError);
+  if(!mark){chars[index].className="char current incorrect";updateMetrics();return}
   if(delay){addTiming(keyTimings,expected,delay);if(previousExpected)addTiming(transitionTimings,previousExpected+expected,delay)}
-  typed.push(ok);previousExpected=expected;lastAt=now;showTyped(ok);
+  previousExpected=expected;lastAt=now;showTyped(mark,index);
+  if(typing.complete(line)&&lineIndex===flat.length-1&&$<HTMLSelectElement>("#length").value!=="endless")await finish();
 });
-async function nextLine(){lineIndex++;if(lineIndex>=flat.length){const length=$("#length");if(length instanceof HTMLSelectElement&&length.value==="endless"){const extra=await invoke<Plan>("generate_session",{request:{pairs:plan!.pairs,mode:plan!.mode,length:"medium",adaptive:data.settings.adaptive}});flat.push(...extra.sections.flatMap(s=>s.lines.map(line=>({section:s.name,line}))))}else{return finish()}}pos=0;typed=[];previousExpected="";renderLine()}
-async function finish(){const m=metrics(),duration=Math.round(activeMs());$("#session").hidden=true;$("#results").hidden=false;resultSummary(m,duration);rank($("#missed-keys"),keyErrors," errors");rank($("#problem-transitions"),transitionErrors," errors",transitionLabel);rankTime($("#slow-keys"),keyTimings);rankTime($("#slow-transitions"),transitionTimings,transitionLabel);
-  try{data=await invoke<AppData>("record_session",{record:{timestampMs:Date.now(),mode:plan!.mode,pairs:plan!.pairs,wpm:m.wpm,accuracy:m.accuracy,durationMs:duration,correct,errors,keyErrors,transitionErrors,transitionCounts,keyTimings,transitionTimings}});renderProgress()}catch(e){console.error(e)}
+async function nextLine(){lineIndex++;if(lineIndex>=flat.length){const length=$("#length");if(length instanceof HTMLSelectElement&&length.value==="endless"){const extra=await invoke<Plan>("generate_session",{request:{pairs:plan!.pairs,mode:plan!.mode,length:"medium",adaptive:data.settings.adaptive}});flat.push(...extra.sections.flatMap(s=>s.lines.map(line=>({section:s.name,line}))))}else{return finish()}}typing.resetLine();previousExpected="";lastAt=0;renderLine()}
+async function finish(){const m=metrics(),duration=Math.round(activeMs());resultsReady=false;$("#session").hidden=true;$("#results").hidden=false;sessionChrome(false);resultSummary(m,duration);$("#result-practice").textContent=`${plan!.pairs.map(labelFor).join(" + ")} · ${plan!.mode}`;rank($("#missed-keys"),keyErrors," errors");rank($("#problem-transitions"),transitionErrors," errors",transitionLabel);rankTime($("#slow-keys"),keyTimings);rankTime($("#slow-transitions"),transitionTimings,transitionLabel);const again=$<HTMLButtonElement>("#practice-again");again.disabled=true;$("#results").focus();
+  try{data=await invoke<AppData>("record_session",{record:{timestampMs:Date.now(),mode:plan!.mode,pairs:plan!.pairs,wpm:m.wpm,accuracy:m.accuracy,durationMs:duration,correct:typing.correct,errors:typing.errors,keyErrors,transitionErrors,transitionCounts,keyTimings,transitionTimings}});renderProgress()}catch(e){console.error(e)}finally{resultsReady=true;again.disabled=false}
 }
 function statGrid(el:HTMLElement,items:(string|number)[][]){el.replaceChildren(...items.map(([value,label])=>{const box=make("div");box.append(make("strong",String(value)),make("span",String(label)));return box}))}
 function accuracyRating(value:number){return value>=99?"excellent":value>=97?"strong":value>=95?"needs more control":"slow down"}
-function resultSummary(m:ReturnType<typeof metrics>,duration:number){statGrid($("#result-summary"),[[m.accuracy.toFixed(2)+"%",`accuracy · ${accuracyRating(m.accuracy)}`],[m.wpm.toFixed(0),"wpm"],[m.raw.toFixed(0),"raw wpm"],[String(m.chars),"keystrokes"],[String(correct),"correct"],[formatDuration(duration),"duration"]])}
+function resultSummary(m:ReturnType<typeof metrics>,duration:number){statGrid($("#result-summary"),[[m.accuracy.toFixed(2)+"%",`accuracy · ${accuracyRating(m.accuracy)}`],[String(typing.errors),"errors"],[m.wpm.toFixed(0),"wpm"],[formatDuration(duration),"duration"],[m.raw.toFixed(0),"raw wpm"],[String(m.chars),"keystrokes"],[String(typing.correct),"correct"]])}
 function rank(el:HTMLElement,map:Record<string,number>,suffix:string,format=(x:string)=>x.toUpperCase()){const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);el.replaceChildren(...(rows.length?rows.map(([k,v])=>make("li",`${format(k)} · ${v}${suffix}`)):[make("li","None — excellent control")]))}
 function rankTime(el:HTMLElement,map:Record<string,Timing>,format=(x:string)=>x.toUpperCase()){const rows=Object.entries(map).filter(([,v])=>v.samples>=2).sort((a,b)=>b[1].totalMs/b[1].samples-a[1].totalMs/a[1].samples).slice(0,5);el.replaceChildren(...(rows.length?rows.map(([k,v])=>make("li",`${format(k)} · ${Math.round(v.totalMs/v.samples)} ms`)):[make("li","Not enough samples yet")]))}
 function transitionLabel(x:string){return [...x].map(c=>c.toUpperCase()).join(" → ")}
-function exitSession(){if(!confirm("End this session without saving it?"))return;$("#session").hidden=true;$("#setup").hidden=false}
+function sessionChrome(active:boolean){document.body.classList.toggle("in-session",active);$("header").inert=active}
+function pauseSession(){if($("#session").hidden||pausedAt)return;pausedAt=performance.now();updateMetrics();$("#session").classList.add("paused");$("#pause-panel").hidden=false;$<HTMLButtonElement>("#resume-session").focus()}
+function resumeSession(){if(!pausedAt)return;pausedTotal=resumeElapsed(performance.now(),pausedAt,pausedTotal);pausedAt=0;$("#pause-panel").hidden=true;$("#session").classList.remove("paused");updateMetrics();$("#session").focus()}
+function restartSession(){resetSession();$("#pause-panel").hidden=true;$("#session").classList.remove("paused");renderLine();$("#session").focus()}
+function leaveSession(){$("#pause-panel").hidden=true;$("#session").classList.remove("paused");$("#session").hidden=true;$("#setup").hidden=false;sessionChrome(false);$<HTMLButtonElement>("#start-practice").focus()}
 
 function fillSettings(){const f=$("#settings-form") as HTMLFormElement;for(const [k,v] of Object.entries(data.settings)){const input=f.elements.namedItem(k) as HTMLInputElement|HTMLSelectElement|null;if(input)typeof v==="boolean"?(input as HTMLInputElement).checked=v:input.value=String(v)}}
 function applySettings(){document.documentElement.dataset.theme=data.settings.theme;document.documentElement.style.setProperty("--font-size",`${data.settings.fontSize}px`)}
 $("#settings-form").addEventListener("change",async()=>{const f=$("#settings-form") as HTMLFormElement;const val=(n:string)=>(f.elements.namedItem(n) as HTMLInputElement);data.settings={theme:val("theme").value,fontSize:Number(val("fontSize").value),stopOnError:val("stopOnError").checked,showKeyboard:val("showKeyboard").checked,showLiveWpm:val("showLiveWpm").checked,adaptive:val("adaptive").checked,allowBackspace:val("allowBackspace").checked};applySettings();try{await invoke("save_settings",{settings:data.settings})}catch(e){console.error(e)}});
-function renderKeyboard(){const el=$("#keyboard-guide");el.hidden=!data.settings.showKeyboard;if(el.hidden)return;const keys="qwertyuiopasdfghjkl;zxcvbnm,./",on=new Set(plan!.pairs.flatMap(p=>[...p]));el.replaceChildren(...[...keys].map(k=>make("span",k.toUpperCase(),`keycap ${on.has(k)?"on":""}`)))}
+const FINGERS:Record<string,string>={q:"left little",a:"left little",z:"left little",w:"left ring",s:"left ring",x:"left ring",e:"left middle",d:"left middle",c:"left middle",r:"left index",f:"left index",v:"left index",t:"left index",g:"left index",b:"left index",y:"right index",h:"right index",n:"right index",u:"right index",j:"right index",m:"right index",i:"right middle",k:"right middle",",":"right middle",o:"right ring",l:"right ring",".":"right ring",p:"right little",";":"right little","/":"right little"," ":"thumb"};
+function renderKeyboard(){const el=$("#keyboard-guide");el.hidden=!data.settings.showKeyboard;keycaps.clear();currentGuideKey="";if(el.hidden)return;const keys="qwertyuiopasdfghjkl;zxcvbnm,./",on=new Set(plan!.pairs.flatMap(p=>[...p])),nodes:HTMLElement[]=[];for(const k of [...keys," "]){const cap=make("span",k===" "?"Space":k.toUpperCase(),`keycap ${on.has(k)?"on":""}`);keycaps.set(k,cap);nodes.push(cap)}nodes.push(make("span","","finger-guide"));el.replaceChildren(...nodes)}
+function updateKeyboardTarget(key:string|undefined){if(!data.settings.showKeyboard)return;keycaps.get(currentGuideKey)?.classList.remove("target");currentGuideKey=key||"";const guide=$("#keyboard-guide .finger-guide");if(!key){guide.textContent="";return}keycaps.get(key)?.classList.add("target");guide.textContent=`Target ${key===" "?"Space":key.toUpperCase()} · ${FINGERS[key]||""}`}
 function renderProgress(){const total=data.totalCorrect+data.totalErrors,accuracy=total?data.totalCorrect/total*100:100;const avgWpm=data.recentSessions.length?data.recentSessions.reduce((s,x)=>s+x.wpm,0)/data.recentSessions.length:0;statGrid($("#overall"),[[data.sessionsCompleted,"sessions"],[formatDuration(data.totalPracticeMs),"practice time"],[accuracy.toFixed(1)+"%","overall accuracy"],[avgWpm.toFixed(0),"recent avg wpm"]]);
   const pairRows=Object.entries(data.pairStats).sort((a,b)=>b[1].sessions-a[1].sessions),pairProgress=$("#pair-progress");pairProgress.replaceChildren(...(pairRows.length?pairRows.map(([p,s])=>{const a=s.correct+s.errors?s.correct/(s.correct+s.errors)*100:100,w=s.totalMs?s.correct/5/(s.totalMs/60000):0,row=make("div",undefined,"pair-stat");row.append(make("strong",labelFor(p)),make("span",`${s.sessions} sessions · ${a.toFixed(1)}% · ${w.toFixed(0)} WPM`));return row}):[make("p","Complete a session to begin tracking progress.")]));
   const weakKeys=Object.entries(data.keyErrors).sort((a,b)=>b[1]-a[1]).slice(0,5),weakTrans=Object.entries(data.transitionErrors).sort((a,b)=>b[1]-a[1]).slice(0,5);$("#weak-spots").replaceChildren(make("p",`Keys: ${weakKeys.map(([k,v])=>`${k.toUpperCase()} (${v})`).join(", ")||"none yet"}`),make("p",`Transitions: ${weakTrans.map(([k,v])=>`${transitionLabel(k)} (${v})`).join(", ")||"none yet"}`));
@@ -94,5 +114,6 @@ function formatDuration(ms:number){const mins=Math.floor(ms/60000),secs=Math.flo
 function labelFor(pair:string){return pair.split("").map(x=>x.toUpperCase()).join(" / ")}
 function showView(name:string){document.querySelectorAll(".view").forEach(x=>x.classList.toggle("active",x.id===`${name}-view`));document.querySelectorAll(".nav").forEach(x=>x.classList.toggle("active",(x as HTMLElement).dataset.view===name));if(name==="progress")renderProgress()}
 document.querySelectorAll<HTMLElement>(".nav").forEach(x=>x.addEventListener("click",()=>showView(x.dataset.view!)));
-groups.addEventListener("change",updateSelectionUi);$<HTMLInputElement>("#select-all").addEventListener("change",e=>{document.querySelectorAll<HTMLInputElement>("#pair-groups input").forEach(input=>input.checked=(e.currentTarget as HTMLInputElement).checked);updateSelectionUi()});$("#start-practice").addEventListener("click",start);$("#exit-session").addEventListener("click",exitSession);$("#practice-again").addEventListener("click",()=>{$("#results").hidden=true;$("#setup").hidden=false});
+groups.addEventListener("change",updateSelectionUi);$<HTMLInputElement>("#select-all").addEventListener("change",e=>{document.querySelectorAll<HTMLInputElement>("#pair-groups input").forEach(input=>input.checked=(e.currentTarget as HTMLInputElement).checked);updateSelectionUi()});$("#start-practice").addEventListener("click",start);$("#pause-session").addEventListener("click",pauseSession);$("#resume-session").addEventListener("click",resumeSession);$("#restart-session").addEventListener("click",restartSession);$("#leave-session").addEventListener("click",leaveSession);$("#practice-again").addEventListener("click",start);$("#change-practice").addEventListener("click",()=>{$("#results").hidden=true;$("#setup").hidden=false;$<HTMLButtonElement>("#start-practice").focus()});
+window.addEventListener("blur",()=>{if(!$("#session").hidden&&!pausedAt)pauseSession()});
 init();

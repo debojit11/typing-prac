@@ -2,12 +2,14 @@
   "name": "typing-prac",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "frontend": "tsc --noEmit && esbuild ./src/main.ts --bundle --format=esm --target=es2022 --outfile=./frontend/dist/main.js --minify",
     "build": "tauri build",
-    "test": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run test:ui && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:ui": "esbuild ./src/session.test.mjs --bundle --platform=node --format=esm --target=node20 --outfile=./src-tauri/target/session.test.mjs && node --test ./src-tauri/target/session.test.mjs",
     "inspect": "cargo test --manifest-path src-tauri/Cargo.toml inspect_samples -- --ignored --nocapture"
   },
   "devDependencies": {

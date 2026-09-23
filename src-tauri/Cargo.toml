@@ -2,6 +2,7 @@
 name = "typing-prac"
 version = "0.1.0"
 description = "Deliberate touch-typing key-pair practice"
+license = "MIT"
 edition = "2021"
 
 [lib]

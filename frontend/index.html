@@ -63,34 +63,49 @@
         <p id="setup-error" class="error" role="alert"></p>
       </div>
 
-      <div id="session" hidden tabindex="-1">
+      <div id="session" hidden tabindex="-1" aria-describedby="session-hint">
         <div class="session-head">
           <div><span id="section-name" class="eyebrow"></span><h2 id="session-title"></h2></div>
-          <button id="exit-session" class="quiet" title="Escape">Exit</button>
+          <button id="pause-session" class="quiet" title="Pause (Escape)">Pause</button>
         </div>
         <div id="exercise" aria-label="Typing exercise"></div>
         <div id="keyboard-guide" hidden></div>
         <div class="metrics" aria-live="polite">
-          <div><strong id="accuracy">100%</strong><span>accuracy</span></div>
+          <div class="metric-primary"><strong id="accuracy">100%</strong><span>accuracy</span></div>
+          <div class="metric-error"><strong id="errors">0</strong><span>errors</span></div>
           <div><strong id="wpm">0</strong><span>wpm</span></div>
-          <div><strong id="raw-wpm">0</strong><span>raw</span></div>
-          <div><strong id="errors">0</strong><span>errors</span></div>
+          <div class="metric-secondary"><strong id="raw-wpm">0</strong><span>raw</span></div>
           <div><strong id="characters">0</strong><span>characters</span></div>
           <div><strong id="elapsed">0:00</strong><span>elapsed</span></div>
         </div>
-        <p class="hint">Type the line · Esc pauses · Enter continues after a line</p>
+        <p id="accuracy-coach" class="coach" role="status"></p>
+        <p id="session-hint" class="hint">Type the line · Esc pauses · Enter continues after a line</p>
+        <div id="pause-panel" class="pause-panel" hidden role="dialog" aria-modal="true" aria-labelledby="pause-title">
+          <p class="eyebrow">Session paused</p>
+          <h2 id="pause-title">Take your time.</h2>
+          <p>The timer and typing input are stopped.</p>
+          <div class="pause-actions">
+            <button id="resume-session" class="primary">Resume</button>
+            <button id="restart-session">Restart</button>
+            <button id="leave-session" class="quiet">Exit session</button>
+          </div>
+        </div>
       </div>
 
-      <div id="results" hidden>
+      <div id="results" hidden tabindex="-1">
         <p class="eyebrow">Session complete</p><h1>Controlled practice pays off.</h1>
+        <p id="result-practice"></p>
         <div id="result-summary" class="result-grid"></div>
         <div class="analysis-grid">
           <section><h3>Most missed keys</h3><ol id="missed-keys"></ol></section>
-          <section><h3>Problem transitions</h3><ol id="problem-transitions"></ol></section>
+          <section><h3>Needs work</h3><ol id="problem-transitions"></ol></section>
           <section><h3>Slowest keys</h3><ol id="slow-keys"></ol></section>
           <section><h3>Slowest transitions</h3><ol id="slow-transitions"></ol></section>
         </div>
-        <button id="practice-again" class="primary">Practice again</button>
+        <div class="result-actions">
+          <button id="practice-again" class="primary">Practice again</button>
+          <button id="change-practice">Change keys</button>
+        </div>
       </div>
     </section>
 
