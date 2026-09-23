@@ -25,6 +25,10 @@ Typing courses are useful for introducing keys, but they often move on before a 
 - Fully offline operation with no telemetry or cloud services
 - Small Tauri and Rust application with a framework-free frontend
 
+## Download
+
+[Download the latest Windows installer](https://github.com/debojit11/typing-prac/releases/latest). Windows may show a SmartScreen warning because the installer is not code-signed.
+
 ## Getting started
 
 ### Requirements
